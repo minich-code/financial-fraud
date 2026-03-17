@@ -1,0 +1,215 @@
+# Fraud Detection ML Pipeline - Argo Workflow Template
+# AI Engineering Challenge - Phase 2
+#
+# Instructions:
+# 1. Complete each step's container specification
+# 2. Define proper inputs/outputs for artifact passing
+# 3. Add appropriate parameters for configuration
+# 4. Ensure proper error handling
+
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: fraud-detection-pipeline-
+  labels:
+    workflows.argoproj.io/archive-strategy: "false"
+  annotations:
+    workflows.argoproj.io/description: |
+      End-to-end ML pipeline for fraud detection in mobile money transactions.
+spec:
+  entrypoint: fraud-detection-pipeline
+  
+  # TODO: Define workflow parameters
+  arguments:
+    parameters:
+      - name: data-path
+        value: "/data/transactions.csv"
+      # TODO: Add more parameters as needed (e.g., model type, hyperparameters)
+  
+  # TODO: Define volumes if needed
+  # volumes:
+  #   - name: data-volume
+  #     persistentVolumeClaim:
+  #       claimName: data-pvc
+
+  templates:
+    # Main pipeline DAG
+    - name: fraud-detection-pipeline
+      dag:
+        tasks:
+          # Step 1: Data Validation
+          - name: data-validation
+            template: validate-data
+            arguments:
+              parameters:
+                - name: data-path
+                  value: "{{workflow.parameters.data-path}}"
+          
+          # Step 2: Feature Engineering
+          - name: feature-engineering
+            template: engineer-features
+            dependencies: [data-validation]
+            arguments:
+              artifacts:
+                - name: validated-data
+                  from: "{{tasks.data-validation.outputs.artifacts.validated-data}}"
+          
+          # Step 3: Model Training
+          - name: model-training
+            template: train-model
+            dependencies: [feature-engineering]
+            arguments:
+              artifacts:
+                - name: feature-data
+                  from: "{{tasks.feature-engineering.outputs.artifacts.feature-data}}"
+          
+          # Step 4: Model Evaluation
+          - name: model-evaluation
+            template: evaluate-model
+            dependencies: [model-training]
+            arguments:
+              artifacts:
+                - name: trained-model
+                  from: "{{tasks.model-training.outputs.artifacts.trained-model}}"
+                - name: test-data
+                  from: "{{tasks.feature-engineering.outputs.artifacts.test-data}}"
+          
+          # Step 5: Model Export (conditional on evaluation passing)
+          - name: model-export
+            template: export-model
+            dependencies: [model-evaluation]
+            arguments:
+              artifacts:
+                - name: trained-model
+                  from: "{{tasks.model-training.outputs.artifacts.trained-model}}"
+                - name: metrics
+                  from: "{{tasks.model-evaluation.outputs.artifacts.metrics}}"
+
+    # ============================================
+    # Step 1: Data Validation Template
+    # ============================================
+    - name: validate-data
+      inputs:
+        parameters:
+          - name: data-path
+      # TODO: Define container spec
+      container:
+        image: # TODO: Your Docker image
+        command: [python]
+        args:
+          - /app/validate_data.py
+          - --input
+          - "{{inputs.parameters.data-path}}"
+      # TODO: Define outputs
+      outputs:
+        artifacts:
+          - name: validated-data
+            path: /tmp/validated_data.parquet
+
+    # ============================================
+    # Step 2: Feature Engineering Template
+    # ============================================
+    - name: engineer-features
+      inputs:
+        artifacts:
+          - name: validated-data
+            path: /tmp/input_data.parquet
+      # TODO: Complete this template
+      container:
+        image: # TODO: Your Docker image
+        command: [python]
+        args:
+          - /app/feature_engineering.py
+      outputs:
+        artifacts:
+          - name: feature-data
+            path: /tmp/features.parquet
+          - name: test-data
+            path: /tmp/test_data.parquet
+
+    # ============================================
+    # Step 3: Model Training Template
+    # ============================================
+    - name: train-model
+      inputs:
+        artifacts:
+          - name: feature-data
+            path: /tmp/features.parquet
+      # TODO: Complete this template
+      container:
+        image: # TODO: Your Docker image
+        command: [python]
+        args:
+          - /app/train_model.py
+        # TODO: Add resource limits
+        # resources:
+        #   limits:
+        #     memory: "4Gi"
+        #     cpu: "2"
+      outputs:
+        artifacts:
+          - name: trained-model
+            path: /tmp/model.joblib
+
+    # ============================================
+    # Step 4: Model Evaluation Template
+    # ============================================
+    - name: evaluate-model
+      inputs:
+        artifacts:
+          - name: trained-model
+            path: /tmp/model.joblib
+          - name: test-data
+            path: /tmp/test_data.parquet
+      # TODO: Complete this template
+      container:
+        image: # TODO: Your Docker image
+        command: [python]
+        args:
+          - /app/evaluate_model.py
+      outputs:
+        artifacts:
+          - name: metrics
+            path: /tmp/metrics.json
+        parameters:
+          - name: auc-score
+            valueFrom:
+              path: /tmp/auc_score.txt
+
+    # ============================================
+    # Step 5: Model Export Template
+    # ============================================
+    - name: export-model
+      inputs:
+        artifacts:
+          - name: trained-model
+            path: /tmp/model.joblib
+          - name: metrics
+            path: /tmp/metrics.json
+      # TODO: Complete this template
+      container:
+        image: # TODO: Your Docker image
+        command: [python]
+        args:
+          - /app/export_model.py
+      outputs:
+        artifacts:
+          - name: model-artifact
+            path: /tmp/model_artifact/
+            # TODO: Consider archiving to S3/GCS
+
+# ============================================
+# Notes for Candidates:
+# ============================================
+# 1. Create Docker images for each pipeline step
+# 2. Implement the Python scripts referenced in each template
+# 3. Define proper error handling using retryStrategy
+# 4. Consider adding resource limits and requests
+# 5. Implement proper logging and monitoring
+# 6. Test locally using Argo CLI before deploying
+#
+# Useful Argo features to consider:
+# - retryStrategy for handling failures
+# - onExit for cleanup
+# - when conditions for conditional execution
+# - withItems/withParam for parallel processing

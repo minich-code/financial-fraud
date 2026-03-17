@@ -1,0 +1,86 @@
+# Fraud Detection Pipeline - Docker Template
+# AI Engineering Challenge - Phase 2
+#
+# Instructions:
+# 1. Customize this Dockerfile for your pipeline steps
+# 2. You may create multiple Dockerfiles (one per step) or a single unified image
+# 3. Ensure all required dependencies are installed
+# 4. Copy your pipeline scripts into the container
+
+# Base image - Python 3.10 slim
+FROM python:3.10-slim
+
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+# TODO: Add any additional system dependencies needed
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+# TODO: Ensure your requirements.txt includes all necessary packages
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+# TODO: Copy your pipeline scripts
+# COPY src/ /app/
+# COPY scripts/ /app/
+
+# Example scripts that should be implemented:
+# - validate_data.py      : Data validation step
+# - feature_engineering.py : Feature engineering step
+# - train_model.py        : Model training step
+# - evaluate_model.py     : Model evaluation step
+# - export_model.py       : Model export step
+
+# Create output directory
+RUN mkdir -p /tmp/output
+
+# Default command (override in Argo workflow)
+CMD ["python", "--version"]
+
+# ============================================
+# Alternative: Multi-stage build example
+# ============================================
+# If you need different images for different steps:
+#
+# # Builder stage
+# FROM python:3.10-slim AS builder
+# WORKDIR /app
+# COPY requirements.txt .
+# RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+#
+# # Training stage
+# FROM python:3.10-slim AS training
+# COPY --from=builder /wheels /wheels
+# RUN pip install --no-cache /wheels/*
+# COPY src/train_model.py /app/
+# CMD ["python", "/app/train_model.py"]
+#
+# # Inference stage (smaller image)
+# FROM python:3.10-slim AS inference
+# COPY --from=builder /wheels /wheels
+# RUN pip install --no-cache /wheels/*
+# COPY src/inference.py /app/
+# CMD ["python", "/app/inference.py"]
+
+# ============================================
+# Notes for Candidates:
+# ============================================
+# 1. Keep images as small as possible
+# 2. Use multi-stage builds if appropriate
+# 3. Don't include unnecessary files (use .dockerignore)
+# 4. Pin dependency versions for reproducibility
+# 5. Add health checks if deploying as a service
+# 6. Consider security best practices (non-root user, etc.)
