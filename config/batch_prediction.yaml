@@ -1,0 +1,37 @@
+artifacts_root: artifacts
+
+batch_prediction:
+  root_dir: artifacts/batch_prediction
+  input_data_path: data/test_transactions.json
+  model_path: artifacts/model_training/lgb_model.joblib
+  pipeline_path: artifacts/feature_engineering/pipeline.joblib
+  reference_stats_path: artifacts/data_validation/reference_stats.json
+
+  # Output
+  predictions_filename: predictions.csv
+
+  # MLflow — same experiment as training
+  mlflow_uri: mlruns
+  experiment_name: fraud-detection
+
+  # Risk tier thresholds
+  threshold_suspicious: 0.3
+  threshold_fraud: 0.55
+
+  # Risk tier labels
+  label_legitimate: legitimate
+  label_suspicious: suspicious
+  label_fraud: fraud
+
+  # Drift thresholds (mirrors data validation)
+  psi_threshold: 0.2
+  fraud_rate_shift_threshold: 0.05
+
+  # Columns to carry through to predictions output
+  id_columns:
+    - transaction_id
+    - timestamp
+    - sender_id
+    - receiver_id
+    - amount
+    - transaction_type

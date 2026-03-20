@@ -1,0 +1,8 @@
+# Data Ingestion Configuration for Fraud Detection Pipeline
+
+artifacts_root: artifacts
+
+data_ingestion:
+  root_dir: artifacts/data_ingestion
+  source_file: data/transactions.csv
+  output_file: transactions.parquet

@@ -1,0 +1,74 @@
+stages:
+  data_ingestion:
+    cmd: python src/pipelines/pip_01_data_ingestion.py
+    deps:
+      - src/pipelines/pip_01_data_ingestion.py
+      - src/components/data_ingestion.py
+      - src/config_manager/data_ingestion.py
+      - config/data_ingestion.yaml
+      - data/transactions.csv
+    outs:
+      - artifacts/data_ingestion/transactions.parquet
+
+  data_validation:
+    cmd: python src/pipelines/pip_02_data_validation.py
+    deps:
+      - src/pipelines/pip_02_data_validation.py
+      - src/components/data_validation.py
+      - src/config_manager/data_validation.py
+      - config/data-validation.yaml
+      - config/schema.yaml
+      - artifacts/data_ingestion/transactions.parquet
+    outs:
+      - artifacts/data_validation/validated_transactions.parquet
+      - artifacts/data_validation/validation_status.json
+      - artifacts/data_validation/reference_stats.json
+
+  feature_engineering:
+    cmd: python src/pipelines/pip_03_feature_engineering.py
+    deps:
+      - src/pipelines/pip_03_feature_engineering.py
+      - src/components/feature_engineering.py
+      - src/config_manager/feature_engineering.py
+      - config/feature-engineering.yaml
+      - artifacts/data_validation/validated_transactions.parquet
+    outs:
+      - artifacts/feature_engineering/X_train.parquet
+      - artifacts/feature_engineering/X_test.parquet
+      - artifacts/feature_engineering/y_train.parquet
+      - artifacts/feature_engineering/y_test.parquet
+      - artifacts/feature_engineering/pipeline.joblib
+
+  model_training:
+    cmd: python src/pipelines/pip_04_model_training.py
+    deps:
+      - src/pipelines/pip_04_model_training.py
+      - src/components/model_training.py
+      - src/config_manager/model_training.py
+      - config/model_training.yaml
+      - artifacts/feature_engineering/X_train.parquet
+      - artifacts/feature_engineering/X_test.parquet
+      - artifacts/feature_engineering/y_train.parquet
+      - artifacts/feature_engineering/y_test.parquet
+    outs:
+      - artifacts/model_training/lgb_model.joblib
+
+  model_evaluation:
+    cmd: python src/pipelines/pip_05_model_evaluation.py
+    deps:
+      - src/pipelines/pip_05_model_evaluation.py
+      - src/components/model_evaluation.py
+      - src/config_manager/model_evaluation.py
+      - config/model_evaluation.yaml
+      - artifacts/model_training/lgb_model.joblib
+      - artifacts/model_training/run_id.json
+      - artifacts/feature_engineering/X_test.parquet
+      - artifacts/feature_engineering/y_test.parquet
+    outs:
+      - artifacts/model_evaluation/evaluation_report.json
+      - artifacts/model_evaluation/confusion_matrix_0.3.png
+      - artifacts/model_evaluation/confusion_matrix_0.55.png
+      - artifacts/model_evaluation/roc_curve.png
+      - artifacts/model_evaluation/precision_recall_curve.png
+      - artifacts/model_evaluation/classification_report_0.3.png
+      - artifacts/model_evaluation/classification_report_0.55.png

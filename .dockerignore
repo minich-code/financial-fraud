@@ -1,0 +1,57 @@
+# .dockerignore
+# Excludes files that should not be copied into the Docker image
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# DVC
+.dvc/cache/
+.dvc/tmp/
+
+# Artifacts — mounted at runtime via volumes, not baked into image
+artifacts/
+
+# Data — mounted at runtime via volumes
+data/
+
+# MLflow runs — mounted at runtime
+mlruns/
+
+# Logs
+logs/
+*.log
+
+# Git
+.git/
+.gitignore
+
+# Environment files — never bake credentials into image
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+tests/

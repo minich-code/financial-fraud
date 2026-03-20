@@ -1,0 +1,62 @@
+
+transaction_id:
+  type: string
+
+timestamp:
+  type: string
+
+sender_id:
+  type: string
+
+receiver_id:
+  type: string
+
+amount:
+  type: float
+  constraints:
+    minimum: 0.0
+
+transaction_type:
+  type: string
+  constraints:
+    enum: [buy_goods, deposit, send_money, withdraw, pay_bill]
+
+sender_balance_before:
+  type: float
+  constraints:
+    minimum: 0.0
+
+sender_balance_after:
+  type: float
+  constraints:
+    minimum: -1584.0
+
+receiver_balance_before:
+  type: float
+  constraints:
+    minimum: 0.0
+
+receiver_balance_after:
+  type: float
+  constraints:
+    minimum: 0.0
+
+device_id:
+  type: string
+
+location_lat:
+  type: float
+  constraints:
+    minimum: -90.0
+    maximum: 90.0
+
+location_lon:
+  type: float
+  constraints:
+    minimum: -180.0
+    maximum: 180.0
+
+is_fraud:
+  type: integer
+  constraints:
+    enum: [0, 1]

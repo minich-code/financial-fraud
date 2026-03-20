@@ -1,0 +1,10 @@
+
+artifacts_root: artifacts
+
+data_validation:
+  root_dir: artifacts/data_validation
+  data_dir: artifacts/data_ingestion/transactions.parquet
+  val_status: artifacts/data_validation/validation_status.json
+  validated_data: artifacts/data_validation/validated_transactions.parquet
+  reference_stats: artifacts/data_validation/reference_stats.json
+  schema_path: config/schema.yaml

@@ -3,6 +3,18 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/.dvc/cache" />
+      <excludeFolder url="file://$MODULE_DIR$/.dvc/tmp" />
+      <excludeFolder url="file://$MODULE_DIR$/artifacts" />
+      <excludeFolder url="file://$MODULE_DIR$/mlruns/635168678648885382/204b5c2989b7481a85178fa082e58a2c/artifacts" />
+      <excludeFolder url="file://$MODULE_DIR$/mlruns/635168678648885382/2fc70f33093143b3beec05f2bcb8dcdc/artifacts" />
+      <excludeFolder url="file://$MODULE_DIR$/mlruns/635168678648885382/34e97cff03d447c49c2aef3e5f2343e3/artifacts" />
+      <excludeFolder url="file://$MODULE_DIR$/mlruns/635168678648885382/96fee80d7665416fbd45756efc7fa4a7/artifacts" />
+      <excludeFolder url="file://$MODULE_DIR$/mlruns/635168678648885382/f5d53b0d6532430cab345746c8f77c65/artifacts" />
+      <excludeFolder url="file://$MODULE_DIR$/mlruns/635168678648885382/models/m-4fbbd22ad13049f79bab62434d0486ba/artifacts" />
+      <excludeFolder url="file://$MODULE_DIR$/mlruns/635168678648885382/models/m-87cb6ed914a043fea63a439c69e6fb97/artifacts" />
+      <excludeFolder url="file://$MODULE_DIR$/mlruns/635168678648885382/models/m-a98e02a16c0e4b258ae4ed3647fdf1d1/artifacts" />
+      <excludeFolder url="file://$MODULE_DIR$/mlruns/635168678648885382/models/m-af363289e7cd46fd8197d220ff87c1b1/artifacts" />
     </content>
     <orderEntry type="jdk" jdkName="financial-fraud" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

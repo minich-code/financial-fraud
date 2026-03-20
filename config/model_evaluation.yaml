@@ -1,0 +1,25 @@
+artifacts_root: artifacts
+
+model_evaluation:
+  root_dir: artifacts/model_evaluation
+  model_path: artifacts/model_training/lgb_model.joblib
+  X_test_path: artifacts/feature_engineering/X_test.parquet
+  y_test_path: artifacts/feature_engineering/y_test.parquet
+  run_id_path: artifacts/model_training/run_id.json
+
+  # MLflow — must match model_training config
+  mlflow_uri: mlruns
+  experiment_name: fraud-detection
+
+  # Decision thresholds
+  thresholds:
+    - 0.3
+    - 0.55
+
+  # Plot styling
+  plot_dpi: 150
+  plot_style: seaborn-v0_8-whitegrid
+  color_primary: "#2563EB"      # blue  — model curve
+  color_secondary: "#DC2626"    # red   — threshold 0.3
+  color_tertiary: "#16A34A"     # green — threshold 0.55
+  color_diagonal: "#9CA3AF"     # grey  — random baseline diagonal

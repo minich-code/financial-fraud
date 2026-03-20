@@ -1,0 +1,63 @@
+artifacts_root: artifacts
+
+model_training:
+  root_dir: artifacts/model_training
+  X_train_path: artifacts/feature_engineering/X_train.parquet
+  X_test_path: artifacts/feature_engineering/X_test.parquet
+  y_train_path: artifacts/feature_engineering/y_train.parquet
+  y_test_path: artifacts/feature_engineering/y_test.parquet
+
+  target_col: is_fraud
+
+  # --- MLflow ---
+  mlflow_uri: mlruns
+  experiment_name: fraud-detection
+
+  # --- Toggle Optuna ---
+  # Set to true when model degrades or significant drift is detected
+  run_hyperparameter_search: false
+
+  # --- Default LightGBM params (from notebook baseline) ---
+  # These are used when run_hyperparameter_search: false
+  # and no best_params.json exists yet
+  default_params:
+    objective: binary
+    metric: auc
+    verbosity: -1
+    boosting_type: gbdt
+    n_estimators: 200
+    random_state: 42
+
+  # --- Optuna search space bounds ---
+  optuna:
+    n_trials: 50
+    cv_folds: 3
+    direction: maximize
+    scoring: roc_auc
+    fixed_params:
+      objective: binary
+      metric: auc
+      verbosity: -1
+      boosting_type: gbdt
+      n_estimators: 300
+      random_state: 42
+    search_space:
+      num_leaves:
+        low: 20
+        high: 150
+      learning_rate:
+        low: 0.01
+        high: 0.3
+        log: true
+      min_child_samples:
+        low: 10
+        high: 100
+      subsample:
+        low: 0.5
+        high: 1.0
+      colsample_bytree:
+        low: 0.5
+        high: 1.0
+      scale_pos_weight:
+        low: 10.0
+        high: 30.0

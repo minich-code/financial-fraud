@@ -1,0 +1,47 @@
+artifacts_root: artifacts
+
+feature_engineering:
+  root_dir: artifacts/feature_engineering
+  data_path: artifacts/data_validation/validated_transactions.parquet
+  target_col: is_fraud
+  test_size: 0.2
+  random_state: 42
+  smote: true
+
+  # Fixed encoding — must never change between train and inference
+  type_mapping:
+    send_money: 0
+    pay_bill: 1
+    buy_goods: 2
+    withdraw: 3
+    deposit: 4
+
+  # Geographic reference point (Nairobi)
+  nairobi_lat: -1.2921
+  nairobi_lon: 36.8219
+
+  # Columns dropped before model input
+  # (identifiers + raw columns replaced by engineered features)
+  drop_cols:
+    - transaction_id
+    - timestamp
+    - sender_id
+    - receiver_id
+    - device_id
+    - transaction_type
+    - location_lat
+    - location_lon
+    - amount
+    - sender_balance_before
+    - sender_balance_after
+    - receiver_balance_before
+    - receiver_balance_after
+
+  skip_scale_cols:
+    - is_night
+    - is_weekend
+    - is_high_value
+    - is_outside_kenya
+    - is_device_switch
+    - balance_discrepancy
+    - transaction_type_enc

@@ -1,2 +1,7 @@
 artifacts/
 artifacts/
+mlruns/
+notebooks/starter_template_files/
+notebooks/outputs/
+notebooks/models/
+notebooks/outputs/

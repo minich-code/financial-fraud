@@ -1,11 +1,20 @@
-# Fraud Detection ML Pipeline - Argo Workflow Template
+# workflow.yaml
+# Fraud Detection ML Pipeline — Argo Workflow
 # AI Engineering Challenge - Phase 2
 #
-# Instructions:
-# 1. Complete each step's container specification
-# 2. Define proper inputs/outputs for artifact passing
-# 3. Add appropriate parameters for configuration
-# 4. Ensure proper error handling
+# Pipeline stages (DAG):
+#   data-validation → feature-engineering → model-training
+#                                         → model-evaluation → model-export
+#
+# Each step runs inside the same Docker image but calls a different script.
+# Artifacts (parquet files, model binaries, metrics JSON) are passed between
+# steps via Argo's artifact mechanism using a shared MinIO/S3 store.
+#
+# To submit:
+#   argo submit workflow.yaml --watch
+#
+# To lint without a cluster:
+#   argo lint workflow.yaml
 
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
@@ -13,57 +22,127 @@ metadata:
   generateName: fraud-detection-pipeline-
   labels:
     workflows.argoproj.io/archive-strategy: "false"
+    app: fraud-detection
+    team: ml-engineering
   annotations:
     workflows.argoproj.io/description: |
       End-to-end ML pipeline for fraud detection in mobile money transactions.
+      Stages: data validation → feature engineering → model training →
+              model evaluation → model export.
+      Artifacts are passed between stages via S3-compatible storage.
+
 spec:
+  # ── Entrypoint ─────────────────────────────────────────────────────────────
   entrypoint: fraud-detection-pipeline
-  
-  # TODO: Define workflow parameters
+
+  # ── Workflow-level timeout ──────────────────────────────────────────────────
+  activeDeadlineSeconds: 7200   # 2 hours max for the full pipeline
+
+  # ── Global retry strategy ───────────────────────────────────────────────────
+  # Applied to all steps unless overridden at the template level
+  retryStrategy:
+    limit: "2"
+    retryPolicy: OnFailure
+    backoff:
+      duration: "30s"
+      factor: "2"
+      maxDuration: "5m"
+
+  # ── Workflow parameters ─────────────────────────────────────────────────────
+  # Override at submission time:
+  #   argo submit workflow.yaml -p data-path=/data/custom.csv
   arguments:
     parameters:
       - name: data-path
         value: "/data/transactions.csv"
-      # TODO: Add more parameters as needed (e.g., model type, hyperparameters)
-  
-  # TODO: Define volumes if needed
-  # volumes:
-  #   - name: data-volume
-  #     persistentVolumeClaim:
-  #       claimName: data-pvc
+      - name: model-type
+        value: "lightgbm"
+      - name: test-size
+        value: "0.2"
+      - name: random-state
+        value: "42"
+      - name: smote-enabled
+        value: "true"
+      - name: run-hyperparameter-search
+        value: "false"
+      - name: min-auc-threshold
+        value: "0.95"
+      - name: docker-image
+        value: "fraud-detection-pipeline:latest"
+
+  # ── Shared volume for data and configs ─────────────────────────────────────
+  volumes:
+    - name: pipeline-config
+      configMap:
+        name: fraud-detection-config   # mounted config YAML files
+    - name: data-volume
+      persistentVolumeClaim:
+        claimName: fraud-data-pvc      # raw transaction data
+
+  # ── Artifact repository (MinIO / S3) ───────────────────────────────────────
+  # Argo uses this to store and retrieve artifacts between steps.
+  # Configure endpoint to match your MinIO or S3 setup.
+  artifactRepositoryRef:
+    configMap: artifact-repositories
+    key: default-v1
+
+  # ============================================================================
+  # TEMPLATES
+  # ============================================================================
 
   templates:
-    # Main pipeline DAG
+
+    # ── Main DAG ───────────────────────────────────────────────────────────────
     - name: fraud-detection-pipeline
       dag:
         tasks:
-          # Step 1: Data Validation
+
+          # Step 1 — Data Validation
+          # Validates schema, integrity, domain rules and drift vs reference stats.
+          # Fails the pipeline if overall validation status is FAILED.
           - name: data-validation
             template: validate-data
             arguments:
               parameters:
                 - name: data-path
                   value: "{{workflow.parameters.data-path}}"
-          
-          # Step 2: Feature Engineering
+
+          # Step 2 — Feature Engineering
+          # Fits transformation pipeline on full dataset, applies SMOTE,
+          # scales features, produces train/test splits.
           - name: feature-engineering
             template: engineer-features
             dependencies: [data-validation]
             arguments:
+              parameters:
+                - name: test-size
+                  value: "{{workflow.parameters.test-size}}"
+                - name: random-state
+                  value: "{{workflow.parameters.random-state}}"
+                - name: smote-enabled
+                  value: "{{workflow.parameters.smote-enabled}}"
               artifacts:
                 - name: validated-data
                   from: "{{tasks.data-validation.outputs.artifacts.validated-data}}"
-          
-          # Step 3: Model Training
+
+          # Step 3 — Model Training
+          # Trains LightGBM. Optionally runs Optuna hyperparameter search.
           - name: model-training
             template: train-model
             dependencies: [feature-engineering]
             arguments:
+              parameters:
+                - name: run-hyperparameter-search
+                  value: "{{workflow.parameters.run-hyperparameter-search}}"
               artifacts:
-                - name: feature-data
-                  from: "{{tasks.feature-engineering.outputs.artifacts.feature-data}}"
-          
-          # Step 4: Model Evaluation
+                - name: X-train
+                  from: "{{tasks.feature-engineering.outputs.artifacts.X-train}}"
+                - name: y-train
+                  from: "{{tasks.feature-engineering.outputs.artifacts.y-train}}"
+
+          # Step 4 — Model Evaluation
+          # Evaluates on held-out test set at both decision thresholds (0.30, 0.55).
+          # Writes AUC score as an output parameter for conditional export.
           - name: model-evaluation
             template: evaluate-model
             dependencies: [model-training]
@@ -71,145 +150,295 @@ spec:
               artifacts:
                 - name: trained-model
                   from: "{{tasks.model-training.outputs.artifacts.trained-model}}"
-                - name: test-data
-                  from: "{{tasks.feature-engineering.outputs.artifacts.test-data}}"
-          
-          # Step 5: Model Export (conditional on evaluation passing)
+                - name: run-id
+                  from: "{{tasks.model-training.outputs.artifacts.run-id}}"
+                - name: X-test
+                  from: "{{tasks.feature-engineering.outputs.artifacts.X-test}}"
+                - name: y-test
+                  from: "{{tasks.feature-engineering.outputs.artifacts.y-test}}"
+
+          # Step 5 — Model Export
+          # Exports model only if AUC-ROC meets the minimum threshold.
+          # Produces a versioned artifact bundle (model + pipeline + metadata).
           - name: model-export
             template: export-model
             dependencies: [model-evaluation]
+            # Conditional: only export if AUC meets minimum threshold
+            when: "{{tasks.model-evaluation.outputs.parameters.auc-score}} >= {{workflow.parameters.min-auc-threshold}}"
             arguments:
               artifacts:
                 - name: trained-model
                   from: "{{tasks.model-training.outputs.artifacts.trained-model}}"
+                - name: pipeline
+                  from: "{{tasks.feature-engineering.outputs.artifacts.pipeline}}"
                 - name: metrics
                   from: "{{tasks.model-evaluation.outputs.artifacts.metrics}}"
 
-    # ============================================
-    # Step 1: Data Validation Template
-    # ============================================
+    # ==========================================================================
+    # Step 1: Data Validation
+    # ==========================================================================
     - name: validate-data
       inputs:
         parameters:
           - name: data-path
-      # TODO: Define container spec
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnFailure
       container:
-        image: # TODO: Your Docker image
+        image: "{{workflow.parameters.docker-image}}"
+        imagePullPolicy: IfNotPresent
         command: [python]
         args:
-          - /app/validate_data.py
-          - --input
-          - "{{inputs.parameters.data-path}}"
-      # TODO: Define outputs
+          - src/validate_data.py
+        env:
+          - name: DATA_PATH
+            value: "{{inputs.parameters.data-path}}"
+          - name: LOG_DIR
+            value: /app/logs
+        volumeMounts:
+          - name: pipeline-config
+            mountPath: /app/config
+          - name: data-volume
+            mountPath: /data
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
       outputs:
         artifacts:
           - name: validated-data
-            path: /tmp/validated_data.parquet
+            path: /app/artifacts/data_validation/validated_transactions.parquet
+            archive:
+              none: {}    # pass as-is, no compression (parquet is already compressed)
 
-    # ============================================
-    # Step 2: Feature Engineering Template
-    # ============================================
+    # ==========================================================================
+    # Step 2: Feature Engineering
+    # ==========================================================================
     - name: engineer-features
       inputs:
+        parameters:
+          - name: test-size
+          - name: random-state
+          - name: smote-enabled
         artifacts:
           - name: validated-data
-            path: /tmp/input_data.parquet
-      # TODO: Complete this template
+            path: /app/artifacts/data_validation/validated_transactions.parquet
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnFailure
       container:
-        image: # TODO: Your Docker image
+        image: "{{workflow.parameters.docker-image}}"
+        imagePullPolicy: IfNotPresent
         command: [python]
         args:
-          - /app/feature_engineering.py
+          - src/feature_engineering.py
+        env:
+          - name: TEST_SIZE
+            value: "{{inputs.parameters.test-size}}"
+          - name: RANDOM_STATE
+            value: "{{inputs.parameters.random-state}}"
+          - name: SMOTE_ENABLED
+            value: "{{inputs.parameters.smote-enabled}}"
+          - name: LOG_DIR
+            value: /app/logs
+        volumeMounts:
+          - name: pipeline-config
+            mountPath: /app/config
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
       outputs:
         artifacts:
-          - name: feature-data
-            path: /tmp/features.parquet
-          - name: test-data
-            path: /tmp/test_data.parquet
+          - name: X-train
+            path: /app/artifacts/feature_engineering/X_train.parquet
+            archive:
+              none: {}
+          - name: X-test
+            path: /app/artifacts/feature_engineering/X_test.parquet
+            archive:
+              none: {}
+          - name: y-train
+            path: /app/artifacts/feature_engineering/y_train.parquet
+            archive:
+              none: {}
+          - name: y-test
+            path: /app/artifacts/feature_engineering/y_test.parquet
+            archive:
+              none: {}
+          - name: pipeline
+            path: /app/artifacts/feature_engineering/pipeline.joblib
+            archive:
+              none: {}
 
-    # ============================================
-    # Step 3: Model Training Template
-    # ============================================
+    # ==========================================================================
+    # Step 3: Model Training
+    # ==========================================================================
     - name: train-model
       inputs:
+        parameters:
+          - name: run-hyperparameter-search
         artifacts:
-          - name: feature-data
-            path: /tmp/features.parquet
-      # TODO: Complete this template
+          - name: X-train
+            path: /app/artifacts/feature_engineering/X_train.parquet
+          - name: y-train
+            path: /app/artifacts/feature_engineering/y_train.parquet
+      retryStrategy:
+        limit: "1"           # only retry once — training is expensive
+        retryPolicy: OnFailure
       container:
-        image: # TODO: Your Docker image
+        image: "{{workflow.parameters.docker-image}}"
+        imagePullPolicy: IfNotPresent
         command: [python]
         args:
-          - /app/train_model.py
-        # TODO: Add resource limits
-        # resources:
-        #   limits:
-        #     memory: "4Gi"
-        #     cpu: "2"
+          - src/train_model.py
+        env:
+          - name: RUN_HYPERPARAMETER_SEARCH
+            value: "{{inputs.parameters.run-hyperparameter-search}}"
+          - name: MLFLOW_TRACKING_URI
+            value: "http://mlflow-server:5000"   # override for cluster MLflow
+          - name: LOG_DIR
+            value: /app/logs
+        volumeMounts:
+          - name: pipeline-config
+            mountPath: /app/config
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
       outputs:
         artifacts:
           - name: trained-model
-            path: /tmp/model.joblib
+            path: /app/artifacts/model_training/lgb_model.joblib
+            archive:
+              none: {}
+          - name: run-id
+            path: /app/artifacts/model_training/run_id.json
+            archive:
+              none: {}
 
-    # ============================================
-    # Step 4: Model Evaluation Template
-    # ============================================
+    # ==========================================================================
+    # Step 4: Model Evaluation
+    # ==========================================================================
     - name: evaluate-model
       inputs:
         artifacts:
           - name: trained-model
-            path: /tmp/model.joblib
-          - name: test-data
-            path: /tmp/test_data.parquet
-      # TODO: Complete this template
+            path: /app/artifacts/model_training/lgb_model.joblib
+          - name: run-id
+            path: /app/artifacts/model_training/run_id.json
+          - name: X-test
+            path: /app/artifacts/feature_engineering/X_test.parquet
+          - name: y-test
+            path: /app/artifacts/feature_engineering/y_test.parquet
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnFailure
       container:
-        image: # TODO: Your Docker image
+        image: "{{workflow.parameters.docker-image}}"
+        imagePullPolicy: IfNotPresent
         command: [python]
         args:
-          - /app/evaluate_model.py
+          - src/evaluate_model.py
+        env:
+          - name: MLFLOW_TRACKING_URI
+            value: "http://mlflow-server:5000"
+          - name: LOG_DIR
+            value: /app/logs
+        volumeMounts:
+          - name: pipeline-config
+            mountPath: /app/config
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
       outputs:
         artifacts:
           - name: metrics
             path: /tmp/metrics.json
+            archive:
+              none: {}
         parameters:
+          # AUC score extracted from file — used in model-export when condition
           - name: auc-score
             valueFrom:
               path: /tmp/auc_score.txt
 
-    # ============================================
-    # Step 5: Model Export Template
-    # ============================================
+    # ==========================================================================
+    # Step 5: Model Export
+    # Runs only when AUC-ROC >= min-auc-threshold (default 0.95)
+    # ==========================================================================
     - name: export-model
       inputs:
         artifacts:
           - name: trained-model
-            path: /tmp/model.joblib
+            path: /app/artifacts/model_training/lgb_model.joblib
+          - name: pipeline
+            path: /app/artifacts/feature_engineering/pipeline.joblib
           - name: metrics
             path: /tmp/metrics.json
-      # TODO: Complete this template
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnFailure
       container:
-        image: # TODO: Your Docker image
+        image: "{{workflow.parameters.docker-image}}"
+        imagePullPolicy: IfNotPresent
         command: [python]
         args:
-          - /app/export_model.py
+          - src/export_model.py
+        env:
+          - name: LOG_DIR
+            value: /app/logs
+        volumeMounts:
+          - name: pipeline-config
+            mountPath: /app/config
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
       outputs:
         artifacts:
           - name: model-artifact
             path: /tmp/model_artifact/
-            # TODO: Consider archiving to S3/GCS
+            archive:
+              tar:
+                compressionLevel: 5
+            # In production: push to S3
+            # s3:
+            #   bucket: fraud-detection-models
+            #   key: "models/{{workflow.name}}/model_artifact.tar.gz"
 
-# ============================================
-# Notes for Candidates:
-# ============================================
-# 1. Create Docker images for each pipeline step
-# 2. Implement the Python scripts referenced in each template
-# 3. Define proper error handling using retryStrategy
-# 4. Consider adding resource limits and requests
-# 5. Implement proper logging and monitoring
-# 6. Test locally using Argo CLI before deploying
-#
-# Useful Argo features to consider:
-# - retryStrategy for handling failures
-# - onExit for cleanup
-# - when conditions for conditional execution
-# - withItems/withParam for parallel processing
+  # ── Exit handler — runs regardless of pipeline success or failure ───────────
+  onExit: pipeline-exit-handler
+
+  # ==========================================================================
+  # Exit Handler
+  # Logs final pipeline status for audit trail.
+  # ==========================================================================
+  # NOTE: onExit template must be defined in the templates list
+  # Add this as a separate template entry:
+
+# Exit handler template (added to templates list above)
+# - name: pipeline-exit-handler
+#   container:
+#     image: "{{workflow.parameters.docker-image}}"
+#     command: [sh, -c]
+#     args:
+#       - |
+#         echo "Pipeline {{workflow.name}} finished with status: {{workflow.status}}"
+#         echo "Duration: {{workflow.duration}}s"

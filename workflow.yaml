@@ -1,0 +1,209 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: fraud-detection-pipeline
+  namespace: argo
+spec:
+  entrypoint: main-pipeline
+
+  # ── Workflow-level timeout ──────────────────────────────────────────────────
+  activeDeadlineSeconds: 7200   # 2 hours max
+
+  # ── Host volumes — project directory mounted into kind cluster ─────────────
+  volumes:
+    - name: data-volume
+      hostPath:
+        path: /app-data/data
+    - name: config-volume
+      hostPath:
+        path: /app-data/config
+    - name: artifacts-volume
+      hostPath:
+        path: /app-data/artifacts
+    - name: mlruns-volume
+      hostPath:
+        path: /app-data/mlruns
+
+  templates:
+
+    # ── Main pipeline — sequential steps ──────────────────────────────────────
+    - name: main-pipeline
+      steps:
+        - - name: data-ingestion
+            template: ingest-data
+        - - name: data-validation
+            template: validate-data
+
+        - - name: feature-engineering
+            template: engineer-features
+
+        - - name: model-training
+            template: train-model
+
+        - - name: model-evaluation
+            template: evaluate-model
+
+        - - name: model-export
+            template: export-model
+
+
+    - name: ingest-data
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnFailure
+      container:
+        image: fraud-detection-pipeline:latest
+        imagePullPolicy: IfNotPresent
+        command: [ python ]
+        args: [ src/scripts/ingest_data.py ]
+        volumeMounts:
+          - name: data-volume
+            mountPath: /app/data
+          - name: config-volume
+            mountPath: /app/config
+          - name: artifacts-volume
+            mountPath: /app/artifacts
+          - name: mlruns-volume
+            mountPath: /app/mlruns
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+
+    # ── Step 1: Data Validation ────────────────────────────────────────────────
+    - name: validate-data
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnFailure
+      container:
+        image: fraud-detection-pipeline:latest
+        imagePullPolicy: IfNotPresent
+        command: [python]
+        args: [src/scripts/validate_data.py]
+        volumeMounts:
+          - name: data-volume
+            mountPath: /app/data
+          - name: config-volume
+            mountPath: /app/config
+          - name: artifacts-volume
+            mountPath: /app/artifacts
+          - name: mlruns-volume        # ← add here
+            mountPath: /app/mlruns
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+
+    # ── Step 2: Feature Engineering ───────────────────────────────────────────
+    - name: engineer-features
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnFailure
+      container:
+        image: fraud-detection-pipeline:latest
+        imagePullPolicy: IfNotPresent
+        command: [python]
+        args: [src/scripts/feature_engineering.py]
+        volumeMounts:
+          - name: data-volume
+            mountPath: /app/data
+          - name: config-volume
+            mountPath: /app/config
+          - name: artifacts-volume
+            mountPath: /app/artifacts
+          - name: mlruns-volume        # ← add here
+            mountPath: /app/mlruns
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+
+    # ── Step 3: Model Training ────────────────────────────────────────────────
+    - name: train-model
+      retryStrategy:
+        limit: "1"
+        retryPolicy: OnFailure
+      container:
+        image: fraud-detection-pipeline:latest
+        imagePullPolicy: IfNotPresent
+        command: [python]
+        args: [src/scripts/train_model.py]
+        volumeMounts:
+          - name: data-volume
+            mountPath: /app/data
+          - name: config-volume
+            mountPath: /app/config
+          - name: artifacts-volume
+            mountPath: /app/artifacts
+          - name: mlruns-volume        # ← add here
+            mountPath: /app/mlruns
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+
+    # ── Step 4: Model Evaluation ──────────────────────────────────────────────
+    - name: evaluate-model
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnFailure
+      container:
+        image: fraud-detection-pipeline:latest
+        imagePullPolicy: IfNotPresent
+        command: [python]
+        args: [src/scripts/evaluate_model.py]
+        volumeMounts:
+          - name: data-volume
+            mountPath: /app/data
+          - name: config-volume
+            mountPath: /app/config
+          - name: artifacts-volume
+            mountPath: /app/artifacts
+          - name: mlruns-volume        # ← add here
+            mountPath: /app/mlruns
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+
+    # ── Step 5: Model Export ──────────────────────────────────────────────────
+    - name: export-model
+      retryStrategy:
+        limit: "2"
+        retryPolicy: OnFailure
+      container:
+        image: fraud-detection-pipeline:latest
+        imagePullPolicy: IfNotPresent
+        command: [python]
+        args: [src/scripts/export_model.py]
+        volumeMounts:
+          - name: data-volume
+            mountPath: /app/data
+          - name: config-volume
+            mountPath: /app/config
+          - name: artifacts-volume
+            mountPath: /app/artifacts
+          - name: mlruns-volume        # ← add here
+            mountPath: /app/mlruns
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"

@@ -1,0 +1,154 @@
+schema: '2.0'
+stages:
+  data_ingestion:
+    cmd: python src/pipelines/pip_01_data_ingestion.py
+    deps:
+    - path: config/data_ingestion.yaml
+      hash: md5
+      md5: 72059ab420f63a611863f5e09f51991c
+      size: 213
+    - path: data/transactions.csv
+      hash: md5
+      md5: 5d42134cf609a5d55419d687ff0bb247
+      size: 7281668
+    - path: src/components/data_ingestion.py
+      hash: md5
+      md5: 4bff90c3e048cc5bd5a6be3e318ddd72
+      size: 3994
+    - path: src/config_manager/data_ingestion.py
+      hash: md5
+      md5: 72d73b0f305bb76cd6ad0391a577ed3d
+      size: 1535
+    - path: src/pipelines/pip_01_data_ingestion.py
+      hash: md5
+      md5: aca95464c8d31cad41335c73e77cd82b
+      size: 1385
+    outs:
+    - path: artifacts/data_ingestion/transactions.parquet
+      hash: md5
+      md5: f1b52594813bd35dc5a906b7f15d714b
+      size: 4653364
+  data_validation:
+    cmd: python src/pipelines/pip_02_data_validation.py
+    deps:
+    - path: artifacts/data_ingestion/transactions.parquet
+      hash: md5
+      md5: f1b52594813bd35dc5a906b7f15d714b
+      size: 4653364
+    - path: config/data-validation.yaml
+      hash: md5
+      md5: 0e9c92ba82104c8972b6a09705c544d6
+      size: 379
+    - path: config/schema.yaml
+      hash: md5
+      md5: e16931ff027466146ea5d4266a058c99
+      size: 817
+    - path: src/components/data_validation.py
+      hash: md5
+      md5: ecafdb89b5f362e0172483c7adf8663d
+      size: 16719
+    - path: src/config_manager/data_validation.py
+      hash: md5
+      md5: f81143c974388a457d216b4e9f5fbc12
+      size: 1837
+    - path: src/pipelines/pip_02_data_validation.py
+      hash: md5
+      md5: 83f255d28749abdf6013f5bdad971849
+      size: 1543
+    outs:
+    - path: artifacts/data_validation/reference_stats.json
+      hash: md5
+      md5: e3f15d9405f1d7ebefe7af1f0d899ed4
+      size: 804
+    - path: artifacts/data_validation/validated_transactions.parquet
+      hash: md5
+      md5: f1b52594813bd35dc5a906b7f15d714b
+      size: 4653364
+    - path: artifacts/data_validation/validation_status.json
+      hash: md5
+      md5: 491684d8ead969e6777c357a0f890739
+      size: 493
+  feature_engineering:
+    cmd: python src/pipelines/pip_03_feature_engineering.py
+    deps:
+    - path: artifacts/data_validation/validated_transactions.parquet
+      hash: md5
+      md5: f1b52594813bd35dc5a906b7f15d714b
+      size: 4653364
+    - path: config/feature-engineering.yaml
+      hash: md5
+      md5: ae6b39220a4abee275186fe4ee330bd8
+      size: 1051
+    - path: src/components/feature_engineering.py
+      hash: md5
+      md5: d7f19a00a6e8f477e2ab9887c37f1e12
+      size: 18431
+    - path: src/config_manager/feature_engineering.py
+      hash: md5
+      md5: 5c069fac08b4757083a1a231820de915
+      size: 2240
+    - path: src/pipelines/pip_03_feature_engineering.py
+      hash: md5
+      md5: 056908cc286264ce6ff6fa712e01c7e3
+      size: 1362
+    outs:
+    - path: artifacts/feature_engineering/X_test.parquet
+      hash: md5
+      md5: 297b8d01a5ea8f0544b714ab8170d6c4
+      size: 639570
+    - path: artifacts/feature_engineering/X_train.parquet
+      hash: md5
+      md5: cd02da4f9e95e6ea7a693cfca1aded4f
+      size: 6591159
+    - path: artifacts/feature_engineering/pipeline.joblib
+      hash: md5
+      md5: deecb6ed411281398b11990012daea02
+      size: 161304
+    - path: artifacts/feature_engineering/y_test.parquet
+      hash: md5
+      md5: 9db11c3875702dc6ea46f49a546cc8bb
+      size: 2128
+    - path: artifacts/feature_engineering/y_train.parquet
+      hash: md5
+      md5: 8ef0af3aef75cddb4d172e31c54068b3
+      size: 4745
+  model_training:
+    cmd: python src/pipelines/pip_04_model_training.py
+    deps:
+    - path: artifacts/feature_engineering/X_test.parquet
+      hash: md5
+      md5: 297b8d01a5ea8f0544b714ab8170d6c4
+      size: 639570
+    - path: artifacts/feature_engineering/X_train.parquet
+      hash: md5
+      md5: cd02da4f9e95e6ea7a693cfca1aded4f
+      size: 6591159
+    - path: artifacts/feature_engineering/y_test.parquet
+      hash: md5
+      md5: 9db11c3875702dc6ea46f49a546cc8bb
+      size: 2128
+    - path: artifacts/feature_engineering/y_train.parquet
+      hash: md5
+      md5: 8ef0af3aef75cddb4d172e31c54068b3
+      size: 4745
+    - path: config/model_training.yaml
+      hash: md5
+      md5: 92cbe10fd735b6f3b864e43ba6d7ae66
+      size: 1510
+    - path: src/components/model_training.py
+      hash: md5
+      md5: 3b1258921f75fb800a6d8bf9c565d2cd
+      size: 11658
+    - path: src/config_manager/model_training.py
+      hash: md5
+      md5: 5dba3bf7d9f2536dd98378da13ace9cf
+      size: 2389
+    - path: src/pipelines/pip_04_model_training.py
+      hash: md5
+      md5: 6a4032ef30f3e7697801a57437d3c7d0
+      size: 1273
+    outs:
+    - path: artifacts/model_training/lgb_model.joblib
+      hash: md5
+      md5: b64a87d7585a8ac0a167f078e94de0cc
+      size: 700420
