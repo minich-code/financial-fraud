@@ -1,338 +1,345 @@
-# AI Engineering Challenge: End-to-End ML Fraud Detection Pipeline
-
-## 🎯 Challenge Overview
-
-Welcome to the AI Intern Technical Challenge! You will build a **complete machine learning fraud detection system** for mobile money transactions, taking it from exploratory data analysis to a deployable automated pipeline.
-
-**Duration:** 1 Week  
-**Total Points:** 100
+# Fraud Detection ML Pipeline
+### AI Engineering Challenge — Submission
 
 ---
 
-## 💻 Environment & Requirements
+## Overview
 
-> **Important:** This is a self-reliant challenge. Sybyl will **NOT** provide any development environment, cloud resources, or infrastructure.
+An end-to-end machine learning pipeline for fraud detection in mobile money
+transactions. The pipeline ingests raw transaction data, validates it,
+engineers features, trains a LightGBM classifier, evaluates performance,
+and generates batch predictions with drift monitoring.
 
-### What You Need to Provide
-- **Your own personal laptop or PC** for all development work
-- All development, testing, and execution must be done on your own machine
-- You are responsible for setting up your local development environment
+**Final Model Performance (on held-out test set):**
 
-### Minimum Hardware Requirements
+| Metric   | Score  |
+|----------|--------|
+| AUC-ROC  | 0.9890 |
+| PR-AUC   | 0.8872 |
+| F1       | 0.8158 |
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| **RAM** | 8 GB | 16 GB |
-| **Storage** | 10 GB free space | 20 GB free space |
-| **CPU** | Modern multi-core processor (Intel i5/AMD Ryzen 5 or equivalent) | Intel i7/AMD Ryzen 7 or better |
-| **GPU** | Not required | Optional (CPU-based training is sufficient) |
-| **OS** | Windows 10/11, macOS 10.15+, or Linux (Ubuntu 20.04+) | Any of the above |
+**Decision Thresholds:**
 
-### Dataset Feasibility
-The provided dataset (~50,000 rows) is specifically designed to be manageable on personal laptops:
-- **Memory footprint:** ~50-100 MB when loaded into pandas
-- **Training time:** Minutes, not hours, on a standard laptop CPU
-- **No GPU required:** All models can be trained efficiently on CPU
-
-### Argo Workflows Options
-For the MLOps phase, you have two options depending on your machine's capabilities:
-
-**Option A: Local Kubernetes (if your machine supports it)**
-- Use Minikube or Kind to run a local Kubernetes cluster
-- Install Argo Workflows locally
-- Test your workflows end-to-end
-
-**Option B: Design-Only Approach (recommended for most laptops)**
-- Create well-documented Argo Workflow YAML files
-- Provide clear explanations of your workflow design
-- Include a detailed walkthrough of how each step would execute
-- This approach is fully acceptable and will be evaluated on design quality
+| Threshold | Label      | Action                  |
+|-----------|------------|-------------------------|
+| >= 0.55   | fraud      | Immediate flag          |
+| >= 0.30   | suspicious | Human review queue      |
+| < 0.30    | legitimate | Pass through            |
 
 ---
 
-## 🎤 Demo Presentation
-
-After the 1-week deadline, you will present your solution to the Sybyl team.
-
-### Demo Format
-- **Duration:** 30-45 minutes
-- **Mode:** In-person or online (to be scheduled)
-- **Scheduling:** You will be contacted to arrange a convenient time
-
-### What to Prepare
-1. **Live Jupyter Notebook Demonstration**
-   - Walk through your EDA with key visualizations
-   - Demonstrate model training and evaluation
-   
-2. **Feature Engineering Explanation**
-   - Explain your rationale for each feature
-   - Discuss what worked and what didn't
-
-3. **Argo Workflow Walkthrough**
-   - Present your pipeline architecture
-   - Explain the design decisions
-
-4. **Model Performance Presentation**
-   - Present your metrics (AUC, Precision, Recall, F1)
-   - Discuss trade-offs and business implications
-
-5. **Q&A Session**
-   - Be prepared to answer questions about your approach
-   - Discuss potential improvements and scalability
-
----
-
-## 📋 Scenario
-
-You are an ML Engineer at a fintech company that operates a mobile money platform similar to M-Pesa. Your task is to develop a fraud detection system that can identify suspicious transactions in real-time. The system needs to be both accurate and production-ready.
-
-The challenge is divided into two phases:
-1. **Phase 1: Data Science** - Explore the data, engineer features, and develop a fraud detection model
-2. **Phase 2: MLOps** - Package your ML pipeline into Argo Workflows for automated deployment
-
----
-
-## 📁 Package Contents
+## Project Structure
 
 ```
-AI_Challenge_Candidate_Package/
-├── README.md                    # This file
-├── CHALLENGE_BRIEF.pdf          # Detailed challenge document
+financial-fraud/
+├── main.py                          # Single entry point — full pipeline
+├── workflow.yaml                    # Argo Workflow definition
+├── Dockerfile                       # Container image for all stages
+├── requirements.txt                 # Pinned Python dependencies
+├── pyproject.toml                   # Package definition
+├── dvc.yaml                         # DVC pipeline stages
+├── params.yaml                      # DVC-tracked parameters
+├── predictions.csv                  # Batch predictions on test data (10,000 rows)
+├── kind-config.yaml                 # kind cluster config for local Kubernetes
+│
+├── config/                          # Pipeline configuration
+│   ├── data_ingestion.yaml
+│   ├── data_validation.yaml
+│   ├── schema.yaml
+│   ├── feature_engineering.yaml
+│   ├── model_training.yaml
+│   ├── model_evaluation.yaml
+│   └── batch_prediction.yaml
+│
 ├── data/
-│   ├── transactions.csv         # Training dataset (~50,000 records, labeled)
-│   └── test_transactions.json   # Test dataset (~10,000 records, UNLABELED)
-├── environment.yml              # Conda environment specification
-├── requirements.txt             # Pip requirements
-├── notebooks/
-│   └── starter_template.ipynb   # Jupyter notebook template
+│   ├── transactions.csv             # Raw training data (50,000 rows)
+│   └── test_transactions.json       # Batch prediction input (10,000 rows)
+│
 ├── src/
-│   └── __init__.py              # Source code directory
-├── argo/
-│   └── workflow-template.yaml   # Argo workflow template
-├── dockerfiles/
-│   └── Dockerfile.template      # Docker template
-└── submission_checklist.md      # What to submit
+│   ├── scripts/                     # Argo/standalone entry points
+│   │   ├── ingest_data.py
+│   │   ├── validate_data.py
+│   │   ├── feature_engineering.py
+│   │   ├── train_model.py
+│   │   ├── evaluate_model.py
+│   │   └── export_model.py
+│   ├── pipelines/                   # Pipeline orchestration
+│   ├── components/                  # Business logic
+│   ├── config_manager/              # Config loading
+│   └── utils/                       # Logger, exception handler, commons
+│
+├── artifacts/                       # Generated outputs (DVC-tracked)
+│   ├── data_ingestion/
+│   ├── data_validation/
+│   ├── feature_engineering/
+│   ├── model_training/
+│   ├── model_evaluation/
+│   ├── model_export/
+│   └── batch_prediction/
+│
+└── docs/
+    ├── pipeline_architecture.md     # Architecture and design decisions
+    └── runbook.md                   # Step-by-step operational guide
 ```
 
 ---
 
-## 🛠️ Setup Instructions
+## Quickstart
 
 ### Prerequisites
-- Python 3.9+
-- Conda (Miniconda or Anaconda)
-- Docker Desktop (for containerization)
-- Minikube or Kind (optional, for local Argo Workflows testing)
 
-### Environment Setup
+- Ubuntu 22.04 / 24.04
+- Python 3.10
+- conda
+- Docker
+- kind (Kubernetes in Docker)
+- kubectl
+- Argo CLI
 
-```bash
-# Create conda environment
-conda env create -f environment.yml
-
-# Activate environment
-conda activate fraud-detection
-
-# Verify installation
-python -c "import pandas; import sklearn; import torch; print('Setup successful!')"
-```
-
-### Start Jupyter
+### 1. Clone and set up environment
 
 ```bash
-jupyter lab
-# Or
-jupyter notebook
+git clone <repository-url>
+cd financial-fraud
+
+conda create -n financial-fraud python=3.10
+conda activate financial-fraud
+
+pip install -r requirements.txt
+pip install -e .
+```
+
+### 2. Run the pipeline locally
+
+```bash
+python main.py
+```
+
+### 3. Run with DVC (skips unchanged stages)
+
+```bash
+dvc repro
+```
+
+### 4. Run batch prediction
+
+```bash
+python src/pipelines/pip_06_batch_prediction.py
+# Output: artifacts/batch_prediction/predictions.csv
+```
+
+### 5. View MLflow experiment tracking
+
+```bash
+mlflow ui --port 5000
+# Open http://localhost:5000
+# Experiment: fraud-detection
 ```
 
 ---
 
-## 📊 Dataset Description
+## Docker
 
-The dataset `data/transactions.csv` contains mobile money transactions with the following columns:
+### Build image
 
-| Column | Description |
-|--------|-------------|
-| `transaction_id` | Unique identifier for each transaction |
-| `timestamp` | Date and time of transaction |
-| `sender_id` | Unique identifier for the sender |
-| `receiver_id` | Unique identifier for the receiver |
-| `amount` | Transaction amount in KES |
-| `transaction_type` | Type: send_money, pay_bill, buy_goods, withdraw, deposit |
-| `sender_balance_before` | Sender's balance before transaction |
-| `sender_balance_after` | Sender's balance after transaction |
-| `receiver_balance_before` | Receiver's balance before transaction |
-| `receiver_balance_after` | Receiver's balance after transaction |
-| `device_id` | Device used for the transaction |
-| `location_lat` | Latitude of transaction location |
-| `location_lon` | Longitude of transaction location |
-| `is_fraud` | Target variable (0 = legitimate, 1 = fraud) |
+```bash
+docker build -t fraud-detection-pipeline:latest .
+```
 
----
+### Run full pipeline in container
 
-## 🔀 Train/Test Split
+```bash
+docker run \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/config:/app/config \
+  -v $(pwd)/artifacts:/app/artifacts \
+  -v $(pwd)/mlruns:/app/mlruns \
+  fraud-detection-pipeline:latest
+```
 
-Your package includes two separate datasets:
+### Run a single stage
 
-### Training Data: `transactions.csv`
-- **Records:** ~50,000 transactions
-- **Format:** CSV
-- **Labels:** ✅ Includes `is_fraud` column
-- **Purpose:** Use this for training and validating your model
-- **Date Range:** January 2024 - June 2024
-
-### Test Data: `test_transactions.json`
-- **Records:** ~10,000 transactions
-- **Format:** JSON (array of objects)
-- **Labels:** ❌ Does NOT include `is_fraud` column
-- **Purpose:** Generate predictions for final evaluation
-- **Date Range:** July 2024 - September 2024
-
-### Important Notes
-1. **Train your model** using only `transactions.csv`
-2. **Generate predictions** for all transactions in `test_transactions.json`
-3. Your predictions will be evaluated against the ground truth (which you don't have access to)
-4. The test set has similar characteristics to training data (~4% fraud rate)
-
-### Loading Test Data
-
-```python
-import json
-import pandas as pd
-
-# Load test data
-with open('data/test_transactions.json', 'r') as f:
-    test_data = json.load(f)
-    
-test_df = pd.DataFrame(test_data)
-print(f"Test transactions: {len(test_df)}")
+```bash
+docker run \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/config:/app/config \
+  -v $(pwd)/artifacts:/app/artifacts \
+  -v $(pwd)/mlruns:/app/mlruns \
+  fraud-detection-pipeline:latest \
+  python src/scripts/validate_data.py
 ```
 
 ---
 
-## 📝 Phase 1: Data Science (Days 1-4)
+## Argo Workflows (Local Kubernetes via kind)
 
-### 1.1 Exploratory Data Analysis (EDA)
-- Analyze the distribution of transactions
-- Identify patterns in fraudulent vs legitimate transactions
-- Visualize temporal, geographical, and behavioral patterns
-- Document your key insights
+### One-time cluster setup
 
-### 1.2 Feature Engineering
-- Create meaningful features from raw data
-- Consider:
-  - Transaction velocity features
-  - Amount-based features
-  - Time-based features
-  - Behavioral patterns
-  - Device/location features
-- Document your feature engineering rationale
+```bash
+# Create cluster
+kind create cluster --name fraud-detection --config kind-config.yaml
 
-### 1.3 Model Development
-- Handle class imbalance appropriately
-- Train and compare multiple models
-- Perform hyperparameter tuning
-- Evaluate using appropriate metrics (Precision, Recall, F1, AUC-ROC)
-- Interpret model predictions
+# Install Argo Workflows
+kubectl create namespace argo
+kubectl apply -n argo -f https://github.com/argoproj/argo-workflows/releases/download/v3.5.10/install.yaml
+kubectl wait --for=condition=ready pod --all -n argo --timeout=180s
 
-### Deliverables for Phase 1
-- Completed Jupyter notebook with EDA, feature engineering, and modeling
-- Trained model saved as a pickle/joblib file
-- Summary of key findings and model performance
-
----
-
-## 🔧 Phase 2: MLOps with Argo Workflows (Days 5-7)
-
-### 2.1 Pipeline Design
-Design an automated ML pipeline with these stages:
-1. **Data Validation** - Validate incoming data quality
-2. **Feature Engineering** - Apply feature transformations
-3. **Model Training** - Train the fraud detection model
-4. **Model Evaluation** - Evaluate model performance
-5. **Model Export** - Save artifacts for deployment
-
-### 2.2 Containerization
-- Create Docker images for each pipeline stage
-- Ensure reproducibility with proper dependency management
-
-### 2.3 Argo Workflow Implementation
-- Implement the pipeline as an Argo Workflow
-- Define proper artifact passing between stages
-- Add appropriate error handling
-- Include workflow parameters for configuration
-
-### Deliverables for Phase 2
-- Dockerfile(s) for pipeline stages
-- Argo Workflow YAML file(s)
-- Documentation of pipeline architecture
-
----
-
-## ✅ Submission Requirements
-
-Please submit your work as a compressed archive containing:
-
-1. **Jupyter Notebook(s)** - Your complete analysis and modeling work
-2. **Source Code** - Modular Python code in `src/` directory
-3. **Model Artifacts** - Trained model file(s)
-4. **Docker Files** - All Dockerfiles created
-5. **Argo Workflows** - Complete workflow YAML files
-6. **Documentation** - README explaining your approach
-7. **Test Predictions** - Predictions on the test dataset
-
-### Test Predictions Format
-
-You MUST submit a file named `test_predictions.csv` with your predictions for the test set:
-
-| Column | Description |
-|--------|-------------|
-| `transaction_id` | The transaction ID from `test_transactions.json` |
-| `predicted_fraud` | Your prediction: 0 (legitimate) or 1 (fraud) |
-
-**Example:**
-```csv
-transaction_id,predicted_fraud
-6739205AC695C940,0
-0891D338A86BFD86,0
-A3F2B1C9D8E7F6A5,1
-...
+# Grant permissions
+kubectl create rolebinding argo-default-admin \
+  --clusterrole=admin \
+  --serviceaccount=argo:default \
+  --namespace=argo
 ```
 
-See `submission_checklist.md` for detailed requirements.
+### Load image into cluster
+
+```bash
+kind load docker-image fraud-detection-pipeline:latest --name fraud-detection
+```
+
+### Start Argo UI (keep this terminal open)
+
+```bash
+kubectl -n argo port-forward deployment/argo-server 2746:2746
+# Open https://localhost:2746
+```
+
+### Submit pipeline
+
+```bash
+# Lint first
+argo lint workflow.yaml
+
+# Submit and watch
+argo submit workflow.yaml --watch -n argo
+```
+
+### After a reboot
+
+```bash
+# Restart cluster
+docker start fraud-detection-control-plane
+
+# Verify pods are running
+kubectl get pods -n argo
+```
 
 ---
 
-## ⏰ Timeline
+## Pipeline Stages
 
-| Day | Focus |
-|-----|-------|
-| Day 1 | Setup, EDA |
-| Day 2 | Feature Engineering |
-| Day 3 | Model Development |
-| Day 4 | Model Tuning & Documentation |
-| Day 5 | Docker & Pipeline Design |
-| Day 6 | Argo Workflow Implementation |
-| Day 7 | Testing, Documentation, Submission |
-
----
-
-## 📈 Evaluation Criteria
-
-| Criteria | Weight |
-|----------|--------|
-| Data Understanding & EDA | 20% |
-| Feature Engineering | 25% |
-| Model Development | 25% |
-| Argo Workflow Implementation | 20% |
-| Code Quality & Documentation | 10% |
+| Stage | Script | Input | Output |
+|---|---|---|---|
+| Data Ingestion | `pip_01_data_ingestion.py` | `data/transactions.csv` | `transactions.parquet` |
+| Data Validation | `pip_02_data_validation.py` | `transactions.parquet` | `validated_transactions.parquet` |
+| Feature Engineering | `pip_03_feature_engineering.py` | `validated_transactions.parquet` | `X_train/X_test/y_train/y_test`, `pipeline.joblib` |
+| Model Training | `pip_04_model_training.py` | `X_train`, `y_train` | `lgb_model.joblib` |
+| Model Evaluation | `pip_05_model_evaluation.py` | `lgb_model.joblib`, `X_test`, `y_test` | `evaluation_report.json`, plots |
+| Batch Prediction | `pip_06_batch_prediction.py` | `test_transactions.json` | `predictions.csv` |
 
 ---
 
-## ❓ Questions?
+## Feature Engineering
 
-If you have questions about the challenge, please contact the hiring team.
+Features engineered from raw transaction data:
+
+| Feature | Description |
+|---|---|
+| `log_amount` | Log-transformed transaction amount |
+| `is_high_value` | Flag for transactions > 10,000 |
+| `amount_vs_sender_avg` | Amount relative to sender historical average |
+| `balance_drain_rate` | Proportion of sender balance spent |
+| `sender_balance_change` | Balance difference before and after |
+| `receiver_balance_change` | Receiver balance difference |
+| `balance_discrepancy` | Flag for amount/balance mismatch |
+| `dist_from_nairobi` | Haversine distance from Nairobi |
+| `is_outside_kenya` | Geographic anomaly flag |
+| `hour`, `is_night`, `is_weekend` | Temporal features |
+| `sender_total_tx` | Sender lifetime transaction count |
+| `sender_unique_recv` | Unique receivers per sender |
+| `sender_unique_devices` | Device diversity per sender |
+| `is_device_switch` | Flag for non-primary device usage |
+| `device_unique_senders` | Senders per device (mule device signal) |
+| `transaction_type_enc` | Encoded transaction type |
 
 ---
 
-**Good luck! We look forward to seeing your solution.**
+## Drift Monitoring
+
+Every batch prediction run checks for distribution shift against the
+reference baseline saved during data validation.
+
+| Column | Method | Threshold |
+|---|---|---|
+| `amount` | PSI | 0.2 |
+| `sender_balance_before` | PSI | 0.2 |
+| `receiver_balance_before` | PSI | 0.2 |
+| `transaction_type` | Categorical PSI | 0.2 |
+| `is_fraud` | Rate shift | 5% |
+
+Drift flags are logged to MLflow and written to
+`artifacts/batch_prediction/batch_monitoring_report.json`.
+
+---
+
+## Hyperparameter Tuning
+
+Optuna-based hyperparameter search is available but disabled by default.
+Enable it when model performance degrades or significant drift is detected:
+
+```yaml
+# config/model_training.yaml
+run_hyperparameter_search: true
+```
+
+Then rerun the pipeline:
+
+```bash
+dvc repro
+# or
+python src/pipelines/pip_04_model_training.py
+```
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `LOG_DIR` | `./logs` | Directory for log files |
+| `MLFLOW_TRACKING_URI` | `mlruns` | MLflow tracking server URI |
+
+---
+
+## Known Limitations
+
+1. **Batch-only inference** — no real-time API endpoint. A FastAPI wrapper
+   around the loaded model would enable online scoring.
+
+2. **Static PSI baseline** — reference stats are computed once on first run.
+   In production, the baseline should refresh on a rolling window.
+
+3. **Local Kubernetes only** — Argo Workflow runs on a local kind cluster.
+   Production deployment would target a managed Kubernetes service
+   (GKE, EKS, AKS).
+
+4. **Single-node training** — suitable for the current dataset size (50k rows).
+   Larger datasets would require distributed training.
+
+---
+
+## Dependencies
+
+Key libraries and versions:
+
+| Library | Version | Purpose |
+|---|---|---|
+| lightgbm | 4.5.0 | Model training |
+| scikit-learn | 1.5.1 | Preprocessing, metrics |
+| imbalanced-learn | 0.12.3 | SMOTE oversampling |
+| mlflow | 2.16.2 | Experiment tracking |
+| optuna | 3.6.1 | Hyperparameter search |
+| pandas | 2.2.2 | Data manipulation |
+| dvc | — | Pipeline reproducibility |
+
+Full list: `requirements.txt`
