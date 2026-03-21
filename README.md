@@ -82,6 +82,16 @@ financial-fraud/
     └── runbook.md                   # Step-by-step operational guide
 ```
 
+
+---
+## Additional Documentation
+
+| Document | Description |
+|---|---|
+| `docs/pipeline_architecture.md` | Full pipeline architecture, design decisions, and data flow diagram |
+| `docs/runbook.md` | Step-by-step operational guide for local, Docker, and Argo runs |
+
+> **Note:** `docs/pipeline_architecture.md` contains detailed instructions for running the pipeline through Argo Workflows on a local Kubernetes cluster via kind. If you are evaluating the MLOps deliverables, start there.
 ---
 
 ## Quickstart
