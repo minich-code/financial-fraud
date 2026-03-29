@@ -155,43 +155,28 @@ class BatchPredictor:
         return df_transformed
 
     # ── Predict ───────────────────────────────────────────────────────────────
-
     def _predict(
-        self,
-        df_raw:        pd.DataFrame,
-        df_transformed: pd.DataFrame,
-        model:         Any,
+            self,
+            df_raw: pd.DataFrame,
+            df_transformed: pd.DataFrame,
+            model: Any,
     ) -> pd.DataFrame:
-        """
-        Generate fraud scores, apply thresholds, assign risk tiers.
-        Carries original id_columns through to the output.
-        """
+        """Generate fraud probabilities and apply the 0.33 threshold."""
         fraud_scores = model.predict_proba(df_transformed)[:, 1]
 
-        # Assign risk tier based on thresholds
-        def _assign_tier(score: float) -> str:
-            if score >= self.config.threshold_fraud:
-                return self.config.label_fraud
-            elif score >= self.config.threshold_suspicious:
-                return self.config.label_suspicious
-            return self.config.label_legitimate
+        # Apply binary threshold
+        predicted_fraud = (fraud_scores >= self.config.threshold).astype(int)
 
-        risk_tiers = pd.Series(fraud_scores).apply(_assign_tier)
-
-        # Build output — id columns + prediction columns
-        id_cols_present = [
-            c for c in self.config.id_columns if c in df_raw.columns
-        ]
+        id_cols_present = [c for c in self.config.id_columns if c in df_raw.columns]
         df_output = df_raw[id_cols_present].copy().reset_index(drop=True)
-        df_output["fraud_score"] = fraud_scores.round(4)
-        df_output["risk_tier"]   = risk_tiers.values
-        df_output["batch_date"]  = self.run_date
+
+        df_output["fraud_score"] = fraud_scores
+        df_output["predicted_fraud"] = predicted_fraud
+        df_output["batch_date"] = self.run_date
 
         logger.info(
             f"Predictions generated — "
-            f"{(risk_tiers == self.config.label_fraud).sum():,} fraud | "
-            f"{(risk_tiers == self.config.label_suspicious).sum():,} suspicious | "
-            f"{(risk_tiers == self.config.label_legitimate).sum():,} legitimate"
+            f"{predicted_fraud.sum():,} fraud flagged at {self.config.threshold} threshold"
         )
         return df_output
 
@@ -288,7 +273,6 @@ class BatchPredictor:
         logger.info(f"Monitoring report saved to {path}")
 
     # ── MLflow logging ────────────────────────────────────────────────────────
-
     def _log_to_mlflow(
         self,
         df_output:        pd.DataFrame,
@@ -298,28 +282,25 @@ class BatchPredictor:
         mlflow.set_tracking_uri(self.config.mlflow_uri)
         mlflow.set_experiment(self.config.experiment_name)
 
-        total       = len(df_output)
-        n_fraud     = int((df_output["risk_tier"] == self.config.label_fraud).sum())
-        n_suspicious = int((df_output["risk_tier"] == self.config.label_suspicious).sum())
-        n_legitimate = int((df_output["risk_tier"] == self.config.label_legitimate).sum())
+        total        = len(df_output)
+        n_fraud      = int(df_output["predicted_fraud"].sum())
+        n_legitimate = total - n_fraud
 
         with mlflow.start_run(run_name=f"batch_prediction_{self.run_date}"):
             mlflow.set_tags({
                 "mode":       "batch_prediction",
                 "batch_date": self.run_date,
-                "drift":      str(monitoring_report.get("drift_detected", False)),
+                "threshold":  self.config.threshold
             })
 
-            # Score distribution metrics
             mlflow.log_metrics({
                 "batch_total_transactions": total,
                 "batch_fraud_count":        n_fraud,
-                "batch_suspicious_count":   n_suspicious,
                 "batch_legitimate_count":   n_legitimate,
                 "batch_fraud_rate":         round(n_fraud / total, 4),
-                "batch_flag_rate":          round((n_fraud + n_suspicious) / total, 4),
                 "batch_avg_fraud_score":    round(float(df_output["fraud_score"].mean()), 4),
             })
+
 
             # PSI scores
             for col, psi_data in monitoring_report.get("psi_scores", {}).items():
@@ -336,24 +317,24 @@ class BatchPredictor:
         logger.info(f"Batch run logged to MLflow experiment '{self.config.experiment_name}'")
 
     # ── Summary ───────────────────────────────────────────────────────────────
-
     def _log_summary(
         self,
-        df_output:         pd.DataFrame,
-        monitoring_report: Dict[str, Any],
+        df_output: pd.DataFrame,
+        monitoring_report: Dict[str, Any]
     ) -> None:
-        total        = len(df_output)
-        n_fraud      = int((df_output["risk_tier"] == self.config.label_fraud).sum())
-        n_suspicious = int((df_output["risk_tier"] == self.config.label_suspicious).sum())
-        n_legitimate = int((df_output["risk_tier"] == self.config.label_legitimate).sum())
+        total = len(df_output)
+        n_fraud = int(df_output["predicted_fraud"].sum())
+        n_legitimate = total - n_fraud
 
         logger.info(
             f"Batch Summary — "
             f"Total: {total:,} | "
-            f"Fraud: {n_fraud:,} ({n_fraud/total:.2%}) | "
-            f"Suspicious: {n_suspicious:,} ({n_suspicious/total:.2%}) | "
-            f"Legitimate: {n_legitimate:,} ({n_legitimate/total:.2%})"
+            f"Fraud Flagged: {n_fraud:,} ({n_fraud/total:.2%}) | "
+            f"Legitimate: {n_legitimate:,} ({n_legitimate/total:.2%}) | "
+            f"Threshold: {self.config.threshold}"
         )
+
+        # Keep this! It alerts you if the data distribution has shifted
         if monitoring_report.get("drift_detected"):
             logger.warning(
                 "ACTION REQUIRED: Drift detected in this batch. "

@@ -227,16 +227,29 @@ class FraudTransformationPipeline:
         df["amount_vs_sender_avg"] = df["amount"] / (sender_avg + 1)
         return df
 
+    # def _add_balance_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    #     df["balance_drain_rate"] = (
+    #         df["amount"] / (df["sender_balance_before"] + 1)
+    #     ).clip(0, 1)
+    #     df["sender_balance_change"]   = df["sender_balance_before"] - df["sender_balance_after"]
+    #     df["receiver_balance_change"] = df["receiver_balance_after"] - df["receiver_balance_before"]
+    #     df["balance_discrepancy"]     = (
+    #         (df["sender_balance_change"] - df["amount"]).abs() > 1
+    #     ).astype(int)
+    #     return df
+
     def _add_balance_features(self, df: pd.DataFrame) -> pd.DataFrame:
         df["balance_drain_rate"] = (
-            df["amount"] / (df["sender_balance_before"] + 1)
+                df["amount"] / (df["sender_balance_before"] + 1)
         ).clip(0, 1)
-        df["sender_balance_change"]   = df["sender_balance_before"] - df["sender_balance_after"]
+        df["sender_balance_change"] = df["sender_balance_before"] - df["sender_balance_after"]
         df["receiver_balance_change"] = df["receiver_balance_after"] - df["receiver_balance_before"]
-        df["balance_discrepancy"]     = (
-            (df["sender_balance_change"] - df["amount"]).abs() > 1
+        df["balance_discrepancy"] = (
+                (df["sender_balance_change"] - df["amount"]).abs() > 1
         ).astype(int)
+        df["amount_to_balance_ratio"] = df["amount"] / (df["sender_balance_before"] + 1)
         return df
+
 
     def _add_geographic_features(self, df: pd.DataFrame) -> pd.DataFrame:
         lat1 = np.radians(self._NAIROBI_LAT)

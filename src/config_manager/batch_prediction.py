@@ -8,7 +8,6 @@ from src.utils.exception import PipelineException, ErrorCategory
 
 BATCH_PREDICTION_CONFIG_FILEPATH = Path("config/batch_prediction.yaml")
 
-
 @dataclass
 class BatchPredictionConfig:
     """Configuration for the batch prediction component."""
@@ -20,10 +19,8 @@ class BatchPredictionConfig:
     predictions_filename:        str
     mlflow_uri:                  str
     experiment_name:             str
-    threshold_suspicious:        float
-    threshold_fraud:             float
+    threshold:                   float
     label_legitimate:            str
-    label_suspicious:            str
     label_fraud:                 str
     psi_threshold:               float
     fraud_rate_shift_threshold:  float
@@ -58,10 +55,8 @@ class ConfigurationManager:
                 predictions_filename=config.predictions_filename,
                 mlflow_uri=config.mlflow_uri,
                 experiment_name=config.experiment_name,
-                threshold_suspicious=float(config.threshold_suspicious),
-                threshold_fraud=float(config.threshold_fraud),
+                threshold=float(config.threshold),  # Matches YAML key 'threshold'
                 label_legitimate=config.label_legitimate,
-                label_suspicious=config.label_suspicious,
                 label_fraud=config.label_fraud,
                 psi_threshold=float(config.psi_threshold),
                 fraud_rate_shift_threshold=float(config.fraud_rate_shift_threshold),
@@ -71,3 +66,4 @@ class ConfigurationManager:
             raise
         except Exception as e:
             raise PipelineException(e, category=ErrorCategory.CONFIGURATION)
+

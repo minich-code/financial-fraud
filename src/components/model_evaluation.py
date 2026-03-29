@@ -31,7 +31,7 @@ from src.utils.logger import logger
 # Threshold labels used consistently across plots and reports
 THRESHOLD_LABELS = {
     0.3:  "T=0.30 (High Recall — Fraud Radar)",
-    0.55: "T=0.55 (High Precision — Auto-Flag)",
+    0.33: "T=0.33 (High Precision — Auto-Flag)",
 }
 THRESHOLD_COLORS = {}   # populated from config in __init__
 

@@ -15,12 +15,10 @@ batch_prediction:
   experiment_name: fraud-detection
 
   # Risk tier thresholds
-  threshold_suspicious: 0.3
-  threshold_fraud: 0.55
+  threshold: 0.33
 
   # Risk tier labels
   label_legitimate: legitimate
-  label_suspicious: suspicious
   label_fraud: fraud
 
   # Drift thresholds (mirrors data validation)

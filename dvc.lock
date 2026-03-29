@@ -81,8 +81,8 @@ stages:
       size: 1051
     - path: src/components/feature_engineering.py
       hash: md5
-      md5: d7f19a00a6e8f477e2ab9887c37f1e12
-      size: 18431
+      md5: 67aa8edca180e455f21a06b474ccce56
+      size: 19081
     - path: src/config_manager/feature_engineering.py
       hash: md5
       md5: 5c069fac08b4757083a1a231820de915
@@ -94,16 +94,16 @@ stages:
     outs:
     - path: artifacts/feature_engineering/X_test.parquet
       hash: md5
-      md5: 297b8d01a5ea8f0544b714ab8170d6c4
-      size: 639570
+      md5: 7a811d7e059d3b41d38a22d8dd41e45e
+      size: 737803
     - path: artifacts/feature_engineering/X_train.parquet
       hash: md5
-      md5: cd02da4f9e95e6ea7a693cfca1aded4f
-      size: 6591159
+      md5: 7300488b893b3cef5b0bd34729a42bcc
+      size: 7370314
     - path: artifacts/feature_engineering/pipeline.joblib
       hash: md5
-      md5: deecb6ed411281398b11990012daea02
-      size: 161304
+      md5: a1c0a28a125ad79b5e8e137f8458c1bc
+      size: 161331
     - path: artifacts/feature_engineering/y_test.parquet
       hash: md5
       md5: 9db11c3875702dc6ea46f49a546cc8bb
@@ -117,12 +117,12 @@ stages:
     deps:
     - path: artifacts/feature_engineering/X_test.parquet
       hash: md5
-      md5: 297b8d01a5ea8f0544b714ab8170d6c4
-      size: 639570
+      md5: 7a811d7e059d3b41d38a22d8dd41e45e
+      size: 737803
     - path: artifacts/feature_engineering/X_train.parquet
       hash: md5
-      md5: cd02da4f9e95e6ea7a693cfca1aded4f
-      size: 6591159
+      md5: 7300488b893b3cef5b0bd34729a42bcc
+      size: 7370314
     - path: artifacts/feature_engineering/y_test.parquet
       hash: md5
       md5: 9db11c3875702dc6ea46f49a546cc8bb
@@ -137,8 +137,8 @@ stages:
       size: 1510
     - path: src/components/model_training.py
       hash: md5
-      md5: 3b1258921f75fb800a6d8bf9c565d2cd
-      size: 11658
+      md5: cf8d70c406602b494c9f3e27bbefb185
+      size: 11917
     - path: src/config_manager/model_training.py
       hash: md5
       md5: 5dba3bf7d9f2536dd98378da13ace9cf
@@ -150,5 +150,69 @@ stages:
     outs:
     - path: artifacts/model_training/lgb_model.joblib
       hash: md5
-      md5: b64a87d7585a8ac0a167f078e94de0cc
-      size: 700420
+      md5: 01326e56ee39b85aa1de24f2cd0a2b40
+      size: 700468
+  model_evaluation:
+    cmd: python src/pipelines/pip_05_model_evaluation.py
+    deps:
+    - path: artifacts/feature_engineering/X_test.parquet
+      hash: md5
+      md5: 7a811d7e059d3b41d38a22d8dd41e45e
+      size: 737803
+    - path: artifacts/feature_engineering/y_test.parquet
+      hash: md5
+      md5: 9db11c3875702dc6ea46f49a546cc8bb
+      size: 2128
+    - path: artifacts/model_training/lgb_model.joblib
+      hash: md5
+      md5: 01326e56ee39b85aa1de24f2cd0a2b40
+      size: 700468
+    - path: artifacts/model_training/run_id.json
+      hash: md5
+      md5: 90f2095c42bf19400a6324e3d319d8ec
+      size: 52
+    - path: config/model_evaluation.yaml
+      hash: md5
+      md5: 87be2e1e546601eaec48ea0a0ef0f058
+      size: 789
+    - path: src/components/model_evaluation.py
+      hash: md5
+      md5: 100d12c2da8421a6277c02afd160d8f3
+      size: 17438
+    - path: src/config_manager/model_evaluation.py
+      hash: md5
+      md5: eb293fc69abce391dff5a76535853ca3
+      size: 2501
+    - path: src/pipelines/pip_05_model_evaluation.py
+      hash: md5
+      md5: caf78525bf1c1d2c31114ad7d821fac7
+      size: 1306
+    outs:
+    - path: artifacts/model_evaluation/classification_report_0.3.png
+      hash: md5
+      md5: 410c4a52aa42ddbb202a410d53a156f1
+      size: 43727
+    - path: artifacts/model_evaluation/classification_report_0.33.png
+      hash: md5
+      md5: 33959c963e00a89a8d87d32d8b9239b4
+      size: 46021
+    - path: artifacts/model_evaluation/confusion_matrix_0.3.png
+      hash: md5
+      md5: cc052426ec39815ba8b12f3bc4a4cd58
+      size: 44363
+    - path: artifacts/model_evaluation/confusion_matrix_0.33.png
+      hash: md5
+      md5: 4964fcda124acba4a57901b95766584b
+      size: 44237
+    - path: artifacts/model_evaluation/evaluation_report.json
+      hash: md5
+      md5: b5baf1e3e530e1dbe42290ef3fcd2994
+      size: 3099
+    - path: artifacts/model_evaluation/precision_recall_curve.png
+      hash: md5
+      md5: 0101fd2ca1e11332dda72b6d7d9c6929
+      size: 67913
+    - path: artifacts/model_evaluation/roc_curve.png
+      hash: md5
+      md5: b60a62f2a7f48fd25b3adf4107d09b17
+      size: 79057

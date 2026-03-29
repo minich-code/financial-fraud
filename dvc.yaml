@@ -67,8 +67,8 @@ stages:
     outs:
       - artifacts/model_evaluation/evaluation_report.json
       - artifacts/model_evaluation/confusion_matrix_0.3.png
-      - artifacts/model_evaluation/confusion_matrix_0.55.png
+      - artifacts/model_evaluation/confusion_matrix_0.33.png
       - artifacts/model_evaluation/roc_curve.png
       - artifacts/model_evaluation/precision_recall_curve.png
       - artifacts/model_evaluation/classification_report_0.3.png
-      - artifacts/model_evaluation/classification_report_0.55.png
+      - artifacts/model_evaluation/classification_report_0.33.png

@@ -153,18 +153,18 @@ docker stop $(docker ps -q)
 # --- 3a. START CLUSTER (do this every time after a reboot) ---
 
 # 1. Navigate to project
-cd ~/Desktop/machine-learning/financial-fraud
+> cd ~/Desktop/machine-learning/financial-fraud
 
 # 2. Check if kind cluster is already running
-kind get clusters
+> kind get clusters
 # Expected output: fraud-detection
 
 # 3a. If cluster EXISTS — just check pods are running
-kubectl get pods -n argo
+> kubectl get pods -n argo
 # Expected: argo-server and workflow-controller both Running
 
 # 3b. If cluster DOES NOT EXIST — create it
-kind create cluster --name fraud-detection --config kind-config.yaml
+> kind create cluster --name fraud-detection --config kind-config.yaml
 
 # 4. Install Argo (only needed if cluster was recreated)
 kubectl create namespace argo
@@ -232,6 +232,29 @@ mkdir -p mlruns
 
 # 6. Resubmit workflow (follow Section 3d)
 
+# 7. On restart 
+> docker start fraud-detection-control-plane
+
+### check cluster is healthy (wait for both pods to show Running)
+> kubectl get pods -n argo
+
+### load image into cluster
+> kind load docker-image fraud-detection-pipeline:latest --name fraud-detection
+
+### open a second terminal and run this — keep it open
+> kubectl -n argo port-forward deployment/argo-server 2746:2746
+
+### back in main terminal, lint and submit
+> argo lint workflow.yaml
+
+### Delete and resubmit 
+> argo delete fraud-detection-pipeline -n argo
+
+### Submit 
+>> argo submit workflow.yaml --watch -n argo
+
+### Launch 
+> https://localhost:2746
 
 # ── SECTION 5: DEMO CHECKLIST ─────────────────────────────────────────────
 # Run through this before your presentation

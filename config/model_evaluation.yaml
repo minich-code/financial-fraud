@@ -14,12 +14,12 @@ model_evaluation:
   # Decision thresholds
   thresholds:
     - 0.3
-    - 0.55
+    - 0.33
 
   # Plot styling
   plot_dpi: 150
   plot_style: seaborn-v0_8-whitegrid
   color_primary: "#2563EB"      # blue  — model curve
   color_secondary: "#DC2626"    # red   — threshold 0.3
-  color_tertiary: "#16A34A"     # green — threshold 0.55
+  color_tertiary: "#16A34A"     # green — threshold 0.33
   color_diagonal: "#9CA3AF"     # grey  — random baseline diagonal
